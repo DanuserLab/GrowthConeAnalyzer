@@ -1,4 +1,4 @@
-![Alt Text](https://github.com/mbagonis/GrowthConeAnalyzer/GCALogo.png)
+![Alt Text](https://github.com/mbagonis/GrowthConeAnalyzer/blob/master/GCALogo.png)
 -------------
 
 ### This repository includes GrowthConeAnalyzer Matlab source code, test data, and help files. 
