@@ -3,14 +3,14 @@
 
 ### This repository includes GrowthConeAnalyzer Matlab source code, test data, and help files. 
 - The full Growth Cone Analyzer pipeline can currently be run using GCARunFullPipeline.m 
-- Please see our ever-expanding GCAManual in the helpFile folder for further information on getting started. 
+- Please see our ever-expanding GCAManual in the [helpFiles folder](https://github.com/mbagonis/GrowthConeAnalyzer/tree/master/helpFiles) for further information on getting started. 
 
 ------------------
 #### Citation
 
 
 - Please cite the following manuscript when using the GrowthConeAnalyzer software:
-   - ["Automated profiling of growth cone heterogeneity defines relations between morphology and motility" M M Bagonis, L Fusco, Olivier Pertz, and Gaudenz Danuser; JCB 2018].
+   - ["Automated profiling of growth cone heterogeneity defines relations between morphology and motility" Maria M. Bagonis, Ludovico Fusco, Olivier Pertz, and Gaudenz Danuser; JCB 2018].
 
 -----------------
 
