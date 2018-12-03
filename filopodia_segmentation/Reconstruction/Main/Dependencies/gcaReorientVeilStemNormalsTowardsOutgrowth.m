@@ -1,0 +1,174 @@
+function [normalsCRotated,smoothedEdgeC,normalsC] = gcaReorientVeilStemNormalsTowardsOutgrowth(leadProtrusionPt,LPIndices,normalsC,smoothedEdgeC,dims,idxEnter )
+% gcaReorientVeilStemNormalsTowardOutgrowth
+%
+% leadProtrusionPt:
+%
+% normalsC:
+%
+% smoothedEdgeC:
+%
+% dims :
+%
+% OUTPUT:
+% normalsCRotated
+%% Initiate
+nSamples = size(normalsC,1);
+% initiate rotated normals mat
+normalsCRotated = zeros(nSamples,2);
+
+% find the closest point to the smoothed edge values as these will be our
+% normals
+%get distances of each tip to the enter coord
+distToSmoothEdge = arrayfun(@(i) sqrt((leadProtrusionPt(1,1)-smoothedEdgeC(i,1))^2 + (leadProtrusionPt(1,2)-smoothedEdgeC(i,2))^2),1:nSamples);
+
+% get the distances to the smoothed edge neurite entrance
+[yEnter,xEnter] = ind2sub(dims,idxEnter);
+distToSmoothEdgeNeuriteEnter = arrayfun(@(i) sqrt((xEnter-smoothedEdgeC(i,1))^2 + (yEnter-smoothedEdgeC(i,2))^2),1:nSamples);
+% hold on
+% scatter(smoothedEdgeC(:,1),smoothedEdgeC(:,2),10,'g','filled');
+% hold on
+% show the plot
+% quiver(smoothedEdgeC(:,1),smoothedEdgeC(:,2),normalsC(:,1),normalsC(:,2),'g');
+% scatter(leadProtrusionPt(:,1),leadProtrusionPt(:,2),'b');
+
+% find the point on the smoothed edge that is closest to the lead
+% protrusion
+leadProtPtSmoothEdge= smoothedEdgeC(distToSmoothEdge == min(distToSmoothEdge),:);
+% added 20160718 make sure lead protrusion point is on the smoothedEdge
+
+neuriteEnterSmoothedEdge = smoothedEdgeC(distToSmoothEdgeNeuriteEnter ==min(distToSmoothEdgeNeuriteEnter),:);
+
+% create a boder mask to make sure that the length of the border = the the
+% length of the smoothEdge coords which we will use for hte normal calcs
+smoothedEdgeCIdxPix= sub2ind(dims,round(smoothedEdgeC(:,2)),round(smoothedEdgeC(:,1)));
+
+borderMask = false(dims);
+borderMask(smoothedEdgeCIdxPix) = true;
+borderMaskAll = borderMask;
+
+borderMask(round(leadProtPtSmoothEdge(:,2)),round(leadProtPtSmoothEdge(:,1))) = false;
+
+borderMask(neuriteEnterSmoothedEdge(1,2),neuriteEnterSmoothedEdge(1,1)) = false;
+
+CCs = bwconncomp(borderMask>0);
+
+if CCs.NumObjects == 1
+    % try to take the backbone mask and find the problem point
+    backboneMask = false(dims);
+    backboneMask(LPIndices) = true;
+    backboneMask = bwmorph(backboneMask,'diag');
+    toRemove = intersect(find(borderMaskAll==1),find(backboneMask==1));
+    idxRemove = arrayfun(@(x)  find(smoothedEdgeCIdxPix == toRemove(x)),1:length(toRemove),'uniformoutput',0 );
+    idxRemove = vertcat(idxRemove{:});
+    quiver(smoothedEdgeC(:,1),smoothedEdgeC(:,2),normalsC(:,1),normalsC(:,2),'g')
+    normalsC(idxRemove,:) = [];
+    smoothedEdgeC(idxRemove,:) = [];
+    
+    quiver(smoothedEdgeC(:,1),smoothedEdgeC(:,2),normalsC(:,1),normalsC(:,2),'r')
+    smoothedEdgeCIdxPix(idxRemove) = [];
+    normalsCRotated(idxRemove,:) = [];
+    
+    borderMask(backboneMask==1) = 0;
+    borderMaskAll(backboneMask==1) = 0;
+    
+    %distMat  = bwdistgeodesic(borderMask,round(leadProtPtSmoothEdge(1,1)),round(leadProtPtSmoothEdge(1,2)));
+    %imagesc(distMat);
+    %distMatBorder =  bwdist(borderMask);
+    %imagesc(distMatBorder.*backboneMask);
+    %LPIndices
+    CCs = bwconncomp(borderMask>0);
+    if CCs.NumObjects > 2
+        sizeSeg = cellfun(@(x) length(x),CCs.PixelIdxList);
+        CCs.PixelIdxList(sizeSeg == min(sizeSeg)) = [];
+        CCs.NumObjects = CCs.NumObjects - 1;
+    end
+end
+% sometimes above check still fails: if CC.PixelIdxList still ~=2 just skip in error
+if CCs.NumObjects ==2 % proceed if it did what we wanted
+    
+    % make the distMat anyway just for testing the orientation relative to the
+    % protrusion
+    distMat  = bwdistgeodesic(borderMaskAll,round(leadProtPtSmoothEdge(1,1)),round(leadProtPtSmoothEdge(1,2)));
+    
+    % match the indices of the smoothedEdge to the indices of the CCs
+    
+    %smoothedEdgeCIdxPix = sub2ind(size(distMat),smoothedEdgeC(:,1),smoothedEdgeC(:,2));
+    
+    % mark the pixIdxs to be rotated clockwise
+    
+    [~,~,ib] = intersect(CCs.PixelIdxList{1},smoothedEdgeCIdxPix,'stable');
+    
+    % mark the pixIdxs to be rotated counter
+    
+    [~,~,ib2]= intersect(CCs.PixelIdxList{2},smoothedEdgeCIdxPix,'stable');
+    
+    % test CCs dir
+    mask1 = false(dims);
+    mask1(CCs.PixelIdxList{1})= true;
+    CC1Dist= distMat.*mask1;
+    % [y1,x1] = find(CC1Dist == 1);
+    % changed 20160718 to fix make more flexibile in case happen to have an
+    % slighly odd pixel configuration. (take min do no assume the distTrans
+    % ==1) Just need these values to get the general directionality - might be
+    % a more clever way to do this...
+    values1 = CC1Dist(CC1Dist~=0);
+    [y1,x1] = find(CC1Dist == min(values1));
+    % just take the first sometimes have more than one value
+    x1 = x1(1);
+    y1= y1(1);
+    
+    %find(smoothedEdgeCIdxPix,1);
+    % idx1 = find(CC1Dist==1);
+    idx1 = find(CC1Dist == min(values1));
+    idx1 = idx1(1);
+    toRot = [normalsC(smoothedEdgeCIdxPix==idx1,1),normalsC(smoothedEdgeCIdxPix==idx1,2)];
+    %make sure toRot is
+    toRot = toRot(1,:);
+    
+    [y2,x2] = find(CC1Dist == min(values1)+1);
+    
+    if ~isempty(y2) % added isempty flag 20180324
+        % just take the first (sometimes have more than one value)
+        y2 = y2(1);
+        x2 = x2(1);
+        
+        % scatter(x1,y1,'filled','r');
+        % scatter(x2,y2,'filled','g');
+        signs =[ -1,1,1,-1];
+        
+        % direction toward leading prot
+        delty = (y1-y2) ;
+        deltx = (x1-x2);
+        vectTest1 = [deltx,delty];
+        % get the idx of
+        
+        %quiver(smoothedEdgeC(ib(1),1),smoothedEdgeC(ib(1),2),vectTest1(1),vectTest1(2),'k')
+        rotMatrix = [0 -1 ; 1 0]; % 90 degree
+        % get the normals of the entrance to the
+        vectTest2 = toRot*rotMatrix;
+        %vectTest2 = idx2(1);
+        %quiver(smoothedEdgeC(idx,1),smoothedEdgeC(ib(1),2),vectTest2(1),vectTest2(2),'y')
+        test = dot(vectTest1,vectTest2);
+        % if the rotation if rotating away
+        if test<0
+            signs = -(signs);
+        end
+        
+        % plot after
+        rotMatrix = [0 signs(1) ; signs(2) 0]; % 90 degree
+        dirEdge = normalsC(ib,:)*rotMatrix;
+        normalsCRotated(ib,1:2) = normalsC(ib,:)*rotMatrix;
+        normalsCRotated(ib,3) = 1;
+        
+        rotMatrix2 = [0 signs(3) ; signs(4) 0]; %
+        dirEdge2 = normalsC(ib2,:)*rotMatrix2;
+        normalsCRotated(ib2,1:2) = normalsC(ib2,:)*rotMatrix2;
+        normalsCRotated(ib2,3) = 2;
+    else  % rotating the normals failed due to some weird morphology feature of the veil/stem
+        normalsCRotated = nan(size(normalsC,1),2);
+    end % ~isempty(y2)
+else % rotating the normals failed due to some weird morphology feature of the veil/stem
+    % which made our assumptions fail.
+    normalsCRotated = nan(size(normalsC,1),2); %
+end % if CC.PixelIdxList ==2 
+end % function
